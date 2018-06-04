@@ -17,7 +17,7 @@ def basis_vector(Q, i):
 
 def greedy_anchors(model, candidates, project_dim=1000):
     Q_bar = row_normalize(model.cooccur)
-    Q_red = random_projection(Q_bar, project_dim, model.seed)
+    Q_red = projection.random_projection(Q_bar, project_dim, model.seed)
 
     anchors = numpy.zeros(model.n_topics, dtype=numpy.int)
     dim = Q_red.shape[1]
@@ -48,7 +48,7 @@ def greedy_anchors(model, candidates, project_dim=1000):
 
 
     # stabilized gram-schmidt which finds new anchor words to expand our subspace
-    for j in range(1, n_topics - 1):
+    for j in range(1, model.n_topics - 1):
         max_dist = 0
         for w in candidates:
             Q_red[w] = Q_red[w] - numpy.dot(Q_red[w], basis[j-1]) * basis[j-1]

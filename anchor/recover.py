@@ -27,7 +27,7 @@ def KLSolveExpGrad(y,x,eps, alpha=None):
     x = x[:, mask]
 
     x += 10**(-9)
-    x /= x.sum(axis=1)[:,newaxis]
+    x /= x.sum(axis=1)[:, numpy.newaxis]
 
     if alpha == None:
         alpha = numpy.ones(k)/k
@@ -116,13 +116,13 @@ def fast_recover(y, X, w, anchors, XXT, initial_stepsize, epsilon):
     alpha = numpy.zeros(k)
     gap = None
     if w in anchors:
-        alpha[anchors.index(v)] = 1
+        alpha[anchors.index(w)] = 1
         it = -1
         dist = 0
         stepsize = 0
 
     else: 
-        alpha = KLSolveExpGrad(y, x, epsilon)
+        alpha = KLSolveExpGrad(y, X, epsilon)
 
     if numpy.isnan(alpha).any():
         alpha = ones(k)/k
@@ -132,7 +132,7 @@ def fast_recover(y, X, w, anchors, XXT, initial_stepsize, epsilon):
 
 
 
-def computeA(cooccur, anchors, epsilon=2e-7):
+def computeA(cooccur, anchors, initial_stepsize=1, epsilon=2e-7):
     Q = cooccur.copy()
     v = Q.shape[0]
     k = len(anchors)
@@ -151,6 +151,8 @@ def computeA(cooccur, anchors, epsilon=2e-7):
 
     X = Q[anchors,:]
     XXT = numpy.dot(X, X.transpose())
+
+    initial_stepsize = 1
 
     C = numpy.zeros((v, k))
     for w in range(v):
