@@ -7,7 +7,21 @@ import multiprocessing.pool
 
 def flatten_list(lst):
     flat_lst = [item for sublist in lst for item in sublist]
-    return flat_lst  
+    return flat_lst
+
+def convert_2dlist(lst, index):
+    new_lst = []
+    for row in lst:
+        new_row = []
+        for entry in row:
+            new_row.append(index[entry])
+        new_lst.append(new_row)
+    return new_lst
+
+def print_2dlist(lst):
+    for row in lst:
+        string = ' '.join(row)
+        print(string)
 
 class MonoModel:
     def __init__(self, M, k, threshold, seed, vocab=None):
@@ -61,11 +75,43 @@ class MonoModel:
             psuedo_anchors = range(n_words, n_words + self.n_topics)
             self.word_topic = recover.computeA(Q, psuedo_anchors)[:n_words]
 
-    def print_anchors(self):
-        vocab = self.vocab
-        for topic in self.anchors:
-            for word in topic:
-                print(vocab[word])
+    def get_anchors(self, word=False, show=False):
+        if not word:
+            return self.anchors 
+        else:
+            anchors = convert_2dlist(self.anchors, self.vocab)
+            if show:
+                print('Printing anchors')
+                print_2dlist(anchors)
+                print('\n')
+            return anchors
+
+    def get_top_topic_words(self, n, word=False, show=False):
+        """Return top [n] words for every topic with information about probability
+        distribution provided by [self.word_topic]
+        """  
+        assert n <= self.word_topic.shape[0], \
+            'Number of words requested greater than model\'s number of words'
+        assert self.word_topic is not None, \
+            'Word-topic is None. Model may not have been built.'
+        topic_words = self.word_topic.T
+
+        # sort words based on probabilities
+        sort_words = numpy.argsort(topic_words, axis=1)
+        # reverse so that the higher probabilities come first
+        rev_words = numpy.flip(sort_words, axis=1)
+        # retrieve top n words
+        top_words = rev_words[:,:n]
+
+        if not word:
+            return top_words
+        else:
+            top_words = convert_2dlist(top_words, self.vocab)
+            if show:
+                print('Printing top n words')
+                print_2dlist(top_words)
+                print('\n')
+            return top_words
 
         
 class MultiModel:
@@ -95,4 +141,13 @@ class MultiModel:
         self.model1.update_topics(anchors1)
         self.model2.update_topics(anchors2)
         
+    def get_anchors(self, word=False, show=False):
+        anchors1 = self.model1.get_anchors(word, show)
+        anchors2 = self.model2.get_anchors(word, show)
+        return anchors1, anchors2
+
+    def get_top_topic_words(self, n, word=False, show=False):
+        top_words1 = self.model1.get_top_topic_words(n, word, show)
+        top_words2 = self.model2.get_top_topic_words(n, word, show)
+        return top_words1, top_words2
 
