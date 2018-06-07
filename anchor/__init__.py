@@ -1,3 +1,3 @@
 from .model import MonoModel, MultiModel
 
-name = 'anchor-topic'
+name = 'anchor'
