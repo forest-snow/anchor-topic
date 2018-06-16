@@ -8,7 +8,7 @@ with open('LICENSE') as f:
     license = f.read()
 
 setup(
-    name='anchor-topic',
+    name='anchor',
     version='0.1.0',
     description='A package for anchor-based topic models.',
     long_description=readme,
