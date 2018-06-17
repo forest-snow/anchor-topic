@@ -4,6 +4,8 @@ import math
 from . import projection
 
 def row_normalize(Q):
+    # return matrix [Q] where each row is normalized 
+    # returns a copy of [Q]
     Q_new = Q.copy()
     row_sums = Q_new.sum(1)
     for i in range(Q_new.shape[0]):
@@ -15,13 +17,13 @@ def row_normalize(Q):
 def basis_vector(Q, i):
     return Q[i]/numpy.sqrt(numpy.dot(Q[i], Q[i].T))
 
-def greedy_anchors(model, candidates, project_dim=1000):
-    Q_bar = row_normalize(model.cooccur)
-    Q_red = projection.random_projection(Q_bar, project_dim, model.seed)
+def greedy_anchors(Q, k, candidates, seed, project_dim=1000):
+    Q_bar = row_normalize(Q)
+    Q_red = projection.random_projection(Q_bar, project_dim, seed)
 
-    anchors = numpy.zeros(model.n_topics, dtype=numpy.int)
+    anchors = numpy.zeros(k, dtype=numpy.int)
     dim = Q_red.shape[1]
-    basis = numpy.zeros((model.n_topics - 1, dim))
+    basis = numpy.zeros((k - 1, dim))
 
     # find p1 with farthest distance from origin
     max_dist = 0
@@ -48,7 +50,7 @@ def greedy_anchors(model, candidates, project_dim=1000):
 
 
     # stabilized gram-schmidt which finds new anchor words to expand our subspace
-    for j in range(1, model.n_topics - 1):
+    for j in range(1, k - 1):
         max_dist = 0
         for w in candidates:
             Q_red[w] = Q_red[w] - numpy.dot(Q_red[w], basis[j-1]) * basis[j-1]
@@ -66,16 +68,16 @@ def min_distance(Q1, Q2, w1, w2):
     return min(numpy.dot(Q1[w1], Q1[w1].T), numpy.dot(Q2[w2], Q2[w2].T))
 
 
-def greedy_linked_anchors(multimodel, candidates, distance=min_distance, project_dim=1000):
-    Q1_bar = row_normalize(multimodel.model1.cooccur)
-    Q2_bar = row_normalize(multimodel.model2.cooccur)
-    Q1_red = projection.random_projection(Q1_bar, project_dim, multimodel.seed)
-    Q2_red = projection.random_projection(Q2_bar, project_dim, multimodel.seed)
+def greedy_linked_anchors(Q1, Q2, k, candidates, seed, distance=min_distance, project_dim=1000):
+    Q1_bar = row_normalize(Q1)
+    Q2_bar = row_normalize(Q2)
+    Q1_red = projection.random_projection(Q1_bar, project_dim, seed)
+    Q2_red = projection.random_projection(Q2_bar, project_dim, seed)
 
-    n_anchors = min(multimodel.n_topics, len(candidates))
+    n_anchors = min(k, len(candidates))
 
-    anchors1 = numpy.zeros(multimodel.n_topics, dtype=numpy.int)
-    anchors2 = numpy.zeros(multimodel.n_topics, dtype=numpy.int)
+    anchors1 = numpy.zeros(k, dtype=numpy.int)
+    anchors2 = numpy.zeros(k, dtype=numpy.int)
 
     if n_anchors == 1:
         return candidates[0]
