@@ -1,1 +1,2 @@
+import anchor
 name = 'anchor'

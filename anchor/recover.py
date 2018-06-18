@@ -149,7 +149,7 @@ def computeA(cooccur, anchors, initial_stepsize=1, epsilon=2e-7):
         if Q[w, :].sum() != 0:
             Q[w, :] = Q[w, :] / Q[w, :].sum()
 
-    X = Q[anchors,:]
+    X = Q[anchors]
     XXT = numpy.dot(X, X.transpose())
 
     initial_stepsize = 1

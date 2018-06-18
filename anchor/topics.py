@@ -26,13 +26,6 @@ def print_2dlist(lst):
 
 # Helper functions to find candidates #
 
-def passes_threshold(M, w):
-    """Returns true if word [w] occurs in enough documents
-    to be eligible as an anchor word candidate. 
-    Otherwise, returns false.
-    """
-    docs_per_word = self.word_doc[w, :].count_nonzero()
-    return docs_per_word >= self.doc_threshold
 
 def identify_candidates(M, doc_threshold):
     """Identify anchor candidates given word-document matrix [M].
@@ -52,7 +45,7 @@ def identify_candidates(M, doc_threshold):
         pool.map(worker, range(n_words), chunksize)
     return numpy.array(candidates)
 
-def identify_linked_candidates(M1, M2, dictionary):
+def identify_linked_candidates(M1, M2, dictionary, doc_threshold1, doc_threshold2):
     """Identify anchor candidates in two languages given first word-document 
     matrix [M1], second word-document matrix [M2], and [dictionary] which maps
     features from [M1] to features to [M2] (does not need to be 1-to-1).
@@ -61,7 +54,9 @@ def identify_linked_candidates(M1, M2, dictionary):
     """
     candidates = []
     for w1, w2 in dictionary:
-        if passes_threshold(M1, w1) and passes_threshold(M2, w2):
+        docs_per_word1 = M1[w1, :].count_nonzero()
+        docs_per_word2 = M2[w2, :].count_nonzero()
+        if docs_per_word1 >= doc_threshold1 and docs_per_word2 >= doc_threshold2:
             candidates.append([w1, w2])
     return numpy.array(candidates)
 
@@ -72,8 +67,8 @@ def model_topics(M, k, threshold, seed=1):
     Corpus represented as word-document matrix [M] of type scipy.sparse.csc_matrix. 
     [Threshold] is minimum percentage of document occurrences for word to be anchor candidate. 
 
-    Returns word-topic matrix [A] and word-coocurrence matrix [Q] to be used
-    to further update model.
+    Returns word-topic matrix [A], word-coocurrence matrix [Q], and 
+    int list list [anchors]. These can be used to further update model.
     """
 
     Q = cooccur.computeQ(M)
@@ -87,7 +82,9 @@ def model_topics(M, k, threshold, seed=1):
 
     # recover topics
     A = recover.computeA(Q, anchors)
-    return A, Q
+    anchors = [[w] for w in anchors]
+
+    return A, Q, anchors
 
 
 def model_multi_topics(M1, M2, k, threshold1, threshold2, \
@@ -98,18 +95,22 @@ def model_multi_topics(M1, M2, k, threshold1, threshold2, \
     [Dictionary] maps features from [M1] to features to [M2] (does not need to be 1-to-1) in 
     list or array format.
 
-    For each corpus, returns word-topic matrix [A] and word-coocurrence matrix [Q] to be used
-    to further update model.
+    For each corpus, returns word-topic matrix [A], word-coocurrence matrix [Q], 
+    and int list list [anchors]. 
+    These can be used to further update model.
     """
     Q1 = cooccur.computeQ(M1)
     Q2 = cooccur.computeQ(M2)
     doc_threshold1 = int(M1.shape[1] * threshold1)
     doc_threshold2 = int(M2.shape[1] * threshold2)
-    candidates = identify_linked_candidates(M1, M2, dictionary)
+    candidates = identify_linked_candidates(M1, M2, dictionary, doc_threshold1, doc_threshold2)
     anchors1, anchors2 = search.greedy_linked_anchors(Q1, Q2, k, candidates, seed)
     A1 = recover.computeA(Q1, anchors1)
     A2 = recover.computeA(Q2, anchors2)
-    return A1, A2, Q1, Q2
+    anchors1 = [[w] for w in anchors1]
+    anchors2 = [[w] for w in anchors2]
+
+    return A1, A2, Q1, Q2, anchors1, anchors2
 
 
 def update_topics(Q, anchors):

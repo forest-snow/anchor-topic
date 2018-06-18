@@ -62,7 +62,7 @@ def greedy_anchors(Q, k, candidates, seed, project_dim=1000):
 
         basis[j] = basis_vector(Q_red, anchors[j+1])
 
-    return anchors
+    return list(anchors)
 
 def min_distance(Q1, Q2, w1, w2):
     return min(numpy.dot(Q1[w1], Q1[w1].T), numpy.dot(Q2[w2], Q2[w2].T))
@@ -82,9 +82,11 @@ def greedy_linked_anchors(Q1, Q2, k, candidates, seed, distance=min_distance, pr
     if n_anchors == 1:
         return candidates[0]
 
-    dim = Q1_red.shape[1]
-    basis1 = numpy.zeros((n_anchors - 1, dim))
-    basis2 = numpy.zeros((n_anchors - 1, dim))
+    dim1 = Q1_red.shape[1]
+    dim2 = Q2_red.shape[1]
+
+    basis1 = numpy.zeros((n_anchors - 1, dim1))
+    basis2 = numpy.zeros((n_anchors - 1, dim2))
 
     # find p1 with farthest distance from origin
     max_dist = 0
@@ -133,4 +135,4 @@ def greedy_linked_anchors(Q1, Q2, k, candidates, seed, distance=min_distance, pr
         basis1[j] = basis_vector(Q1_red, anchors1[j+1])
         basis2[j] = basis_vector(Q2_red, anchors2[j+1])
 
-    return anchors1, anchors2
+    return list(anchors1), list(anchors2)
