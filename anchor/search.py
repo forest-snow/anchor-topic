@@ -69,6 +69,7 @@ def min_distance(Q1, Q2, w1, w2):
 
 
 def greedy_linked_anchors(Q1, Q2, k, candidates, seed, distance=min_distance, project_dim=1000):
+    print('finding linked anchors')
     Q1_bar = row_normalize(Q1)
     Q2_bar = row_normalize(Q2)
     Q1_red = projection.random_projection(Q1_bar, project_dim, seed)

@@ -127,4 +127,3 @@ def update_topics(Q, anchors):
     A = recover.computeA(Q_aug, pseudo_anchors)[:n_words]
     return A
 
-

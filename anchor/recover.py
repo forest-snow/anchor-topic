@@ -1,172 +1,134 @@
 import scipy.sparse
-import scipy.stats
 import numpy 
 import random
 import multiprocessing.pool
 from numba import jit
 
+@jit(nopython=True)
 def logsum_exp(y):
-    m = y.max()
-    return m + numpy.log((numpy.exp(y - m)).sum())
+    """Computes the sum of y in log space"""
+    ymax = y.max()
+    return ymax + numpy.log((numpy.exp(y - ymax)).sum())
 
-def KL(p,q):
-    return scipy.stats.entropy(p, q)        
+@jit(nopython=True)
+def exponentiated_gradient(Y, X, XX, epsilon, k):
+    """Solves an exponentied gradient problem with L2 divergence"""
+    _C1 = 1e-4
+    _C2 = .75
 
-def KLSolveExpGrad(y,x,eps, alpha=None):
-    c1 = 10**(-4)
-    c2 = 0.9
-    it = 1 
-    
-    y = numpy.clip(y, 0, 1)
-    x = numpy.clip(x, 0, 1)
+    XY = numpy.dot(X, Y)
+    YY = numpy.dot(Y, Y)
 
-    (k, n) = x.shape
-    mask = list(numpy.nonzero(y)[0])
-
-    y = y[mask]
-    x = x[:, mask]
-
-    x += 10**(-9)
-    x /= x.sum(axis=1)[:, numpy.newaxis]
-
-    if alpha == None:
-        alpha = numpy.ones(k)/k
-
+    alpha = numpy.ones(X.shape[0]) / X.shape[0]
     old_alpha = numpy.copy(alpha)
     log_alpha = numpy.log(alpha)
     old_log_alpha = numpy.copy(log_alpha)
-    proj = numpy.dot(alpha,x)
-    old_proj = numpy.copy(proj)
 
-    new_obj = KL(y, proj)
-    y_over_proj = y/proj
-    grad = -numpy.dot(x, y_over_proj.transpose())
+    AXX = numpy.dot(alpha, XX)
+    AXY = numpy.dot(alpha, XY)
+    AXXA = numpy.dot(AXX, alpha.transpose())
+
+    grad = 2 * (AXX - XY)
     old_grad = numpy.copy(grad)
 
-    stepsize = 1
-    decreasing = False
-    repeat = False
-    gap = float('inf')
+    new_obj = AXXA - 2 * AXY + YY
 
-    while 1:
-        eta = stepsize
+    # Initialize book keeping
+    stepsize = 1
+    decreased = False
+    convergence = numpy.inf
+
+    while convergence >= epsilon:
         old_obj = new_obj
         old_alpha = numpy.copy(alpha)
         old_log_alpha = numpy.copy(log_alpha)
-
-        old_proj = numpy.copy(proj)
-
-        it += 1
-        #take a step
-        log_alpha -= eta*grad
-
-        #normalize
-        log_alpha -= logsum_exp(log_alpha)
-
-        #compute new objective
-        alpha = numpy.exp(log_alpha)
-        proj = numpy.dot(alpha,x)
-        new_obj = KL(y, proj)
-        if new_obj < eps:
+        if new_obj == 0 or stepsize == 0:
             break
 
-        grad_dot_deltaAlpha = numpy.dot(grad, alpha - old_alpha)
-        assert (grad_dot_deltaAlpha <= 10**(-9))
-        if not new_obj <= old_obj + c1*stepsize*grad_dot_deltaAlpha: #sufficient decrease
-            stepsize /= 2.0 #reduce stepsize
-            if stepsize < 10**(-6):
-                break
-            alpha = old_alpha 
+        # Add the gradient and renormalize in logspace, then exponentiate
+        log_alpha -= stepsize * grad
+        log_alpha -= logsum_exp(log_alpha)
+        alpha = numpy.exp(log_alpha)
+
+        # Precompute quantities needed for adaptive stepsize
+        AXX = numpy.dot(alpha, XX)
+        AXY = numpy.dot(alpha, XY)
+        AXXA = numpy.dot(AXX, alpha.transpose())
+
+        # See if stepsize should decrease
+        old_obj, new_obj = new_obj, AXXA - 2 * AXY + YY
+        offset = _C1 * stepsize * numpy.dot(grad, alpha - old_alpha)
+        new_obj_threshold = old_obj + offset
+        if new_obj >= new_obj_threshold:
+            stepsize /= 2.0
+            alpha = old_alpha
             log_alpha = old_log_alpha
-            proj = old_proj
             new_obj = old_obj
-            repeat = True
-            decreasing = True
+            decreased = True
             continue
 
-        
-        #compute the new gradient
-        old_grad = numpy.copy(grad)
-        y_over_proj = y/proj
-        grad = -numpy.dot(x, y_over_proj)
+        # compute the new gradient
+        old_grad, grad = grad, 2 * (AXX - XY)
 
-        if not numpy.dot(grad, alpha - old_alpha) >= c2*grad_dot_deltaAlpha and not decreasing: #curvature
-            stepsize *= 2.0 #increase stepsize
+        # See if stepsize should increase
+        if numpy.dot(grad, alpha - old_alpha) < _C2 * numpy.dot(old_grad, alpha - old_alpha) and not decreased:
+            stepsize *= 2.0
             alpha = old_alpha
             log_alpha = old_log_alpha
             grad = old_grad
-            proj = old_proj
             new_obj = old_obj
-            repeat = True
             continue
 
-        decreasing= False
-        lam = numpy.copy(grad)
-        lam -= lam.min()
-        
-        gap = numpy.dot(alpha, lam)
-        convergence = gap
-        if (convergence < eps):
-            break
-
-    return alpha
-
-def fast_recover(y, X, w, anchors, XXT, initial_stepsize, epsilon):
-    k = len(anchors)
-    alpha = numpy.zeros(k)
-    gap = None
-    if w in anchors:
-        alpha[anchors.index(w)] = 1
-        it = -1
-        dist = 0
-        stepsize = 0
-
-    else: 
-        alpha = KLSolveExpGrad(y, X, epsilon)
+        # Update book keeping
+        decreased = False
+        convergence = numpy.dot(alpha, grad - grad.min())
 
     if numpy.isnan(alpha).any():
-        alpha = ones(k)/k
-
+        alpha = numpy.ones(X.shape[0]) / X.shape[0]
     return alpha
-        
 
-
-
-def computeA(cooccur, anchors, initial_stepsize=1, epsilon=2e-7):
+def computeA(cooccur, anchors, parallelism=True, epsilon=2e-7):
+    print('\n compute A\n')
     Q = cooccur.copy()
     v = Q.shape[0]
     k = len(anchors)
-    A = numpy.zeros((v, k))
+    Q_anchors = Q[anchors, :]
+
+    # compute normalized anchors X and precompute X*X.T
+    X = Q_anchors / Q_anchors.sum(axis=1)[:, numpy.newaxis]
+    XX = numpy.dot(X, X.transpose())
 
     # store normalization constants
     P_w = numpy.diag(Q.sum(axis=1))
-    for w in range(v):
-        if numpy.isnan(P_w[w, w]):
-            P_w[w, w] = 1e-16    
+    for word in range(v):
+        if numpy.isnan(P_w[word, word]):
+            P_w[word, word] = 1e-16
 
-    # Normalize rows of Q
-    for w in range(v):
-        if Q[w, :].sum() != 0:
-            Q[w, :] = Q[w, :] / Q[w, :].sum()
+    # Normalize rows of Q to get Q_prime
+    for word in range(v):
+        if Q[word, :].sum() != 0:
+            Q[word, :] = Q[word, :] / Q[word, :].sum()
 
-    X = Q[anchors]
-    XXT = numpy.dot(X, X.transpose())
+    # Represent each word as a convex combination of anchors.
+    
+    if parallelism:
+        worker = lambda word: exponentiated_gradient(Q[word], X, XX, epsilon, k)
+        chunksize =  5000
+        with multiprocessing.pool.ThreadPool() as pool:
+            C_matrix = pool.map(worker, range(v), chunksize)
+        C = numpy.array(C_matrix)
 
-    initial_stepsize = 1
-
-    C = numpy.zeros((v, k))
-    for w in range(v):
-        y = Q[w, :]
-        alpha = fast_recover(y, X, w, anchors, XXT, initial_stepsize, epsilon)
-        C[w, :] = alpha 
+    else:
+        C = numpy.zeros((v, k))
+        for word in range(v):
+            C[word] = exponentiated_gradient(Q[word], X, XX, epsilon)
 
     # Use Bayes rule to compute topic matrix
     A = numpy.dot(P_w, C)
     
     # Normalize columns
-    for i in range(k):
-        A[:, i] = A[:, i] / A[:, i].sum()
-
+    for k in range(k):
+        A[:, k] = A[:, k] / A[:, k].sum()
 
     return numpy.array(A)
 
