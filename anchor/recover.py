@@ -88,7 +88,7 @@ def exponentiated_gradient(Y, X, XX, epsilon, k):
     return alpha
 
 def computeA(cooccur, anchors, parallelism=True, epsilon=2e-7):
-    print('\n compute A\n')
+    # print('\n compute A\n')
     Q = cooccur.copy()
     v = Q.shape[0]
     k = len(anchors)

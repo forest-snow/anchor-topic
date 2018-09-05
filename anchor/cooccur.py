@@ -4,7 +4,7 @@ import math
 import scipy.stats
 
 def computeQ(word_doc, epsilon=1e-15):
-    print('\ncomputing Q')
+    # print('\ncomputing Q')
     M = scipy.sparse.csc_matrix(word_doc.copy(), dtype=float)
     n_words, n_docs = M.shape
 
@@ -42,7 +42,6 @@ def computeQ(word_doc, epsilon=1e-15):
 
     # handle precision errors
     Q[(-epsilon < Q) & (Q < epsilon)] = 0
-    print(Q.shape)
 
     return Q
 
