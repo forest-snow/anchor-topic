@@ -9,7 +9,7 @@ with open('LICENSE') as f:
 
 setup(
     name='anchor-topic',
-    version='0.1.1',
+    version='0.1.2',
     description='A package for anchor-based topic models.',
     long_description=readme,
     author='Michelle Yuan',

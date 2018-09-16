@@ -88,7 +88,7 @@ def model_topics(M, k, threshold, seed=1):
 
 
 def model_multi_topics(M1, M2, k, threshold1, threshold2, \
-    seed, dictionary):    
+    dictionary, seed=1):    
     """Model [k] topics of corpus using multi-anchoring algorithm (Yuan et al., 2018). 
     Each corpus represented as word-document matrix [M] of type scipy.sparse.csc_matrix. 
     [Threshold] is minimum percentage of document occurrences for word to be anchor candidate. 
