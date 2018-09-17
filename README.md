@@ -4,7 +4,7 @@ This package supports implementation of anchor-based topic modeling and variants
 
 If you use this package for academic research, [please cite the relevant papers.](http://github.com/forest-snow#publications)
 
-# Installation
+## Installation
 
 Install the package through terminal with this command: 
 ```sh
@@ -12,7 +12,7 @@ pip install anchor-topic
 ```
 Dependencies (Numpy, Scipy, Numba) will be installed as well.
 
-# Models
+## Models
 
 To build a topic model using the code, you must include this import statement:
 ```sh
@@ -55,7 +55,7 @@ A = update_topics(Q, anchors)
 ```
 For each topic, user may pick one or more anchors.  Make sure _anchors_ is a 2d list of type ```int``` where each number represents the word's index in _Q_.
 
-# Publications
+## Publications
 
 If you use this package for academic research, please cite the relevant paper(s) as follows:
 ```sh
@@ -83,7 +83,7 @@ If you use this package for academic research, please cite the relevant paper(s)
   year={2013}
 }
 ```
-# License
+## License
 Copyright (C) 2018, Michelle Yuan
 
 Licensed under the terms of the MIT License. A full copy of the license can be found in LICENSE.txt.
